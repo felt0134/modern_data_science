@@ -3,7 +3,7 @@
 rm(list=ls())
 
 #load packages
-pkgs <- c('rstudioapi','tidyverse','mdsr')
+pkgs <- c('rstudioapi','tidyverse','mdsr','epiDisplay')
 lapply(pkgs, library, character.only = TRUE)
 
 # Set working directory to local directory

@@ -51,14 +51,16 @@ nrow(manny) #21 seasons
 
 head(manny,3)
 #look at all the basic career-wide summary stats
-manny %>% 
+manny %>%
   summarize(
-    span = paste(min(yearID), max(yearID), sep = "-"), #literally creates an x-x column
-    num_years = n_distinct(yearID), #'number of distinct"
-    num_teams = n_distinct(teamID), 
-    BA = sum(H)/sum(AB), 
-    tH = sum(H), 
-    tHR = sum(HR), 
+    span = paste(min(yearID), max(yearID), sep = "-"),
+    #literally creates an x-x column
+    num_years = n_distinct(yearID),
+    #'number of distinct"
+    num_teams = n_distinct(teamID),
+    BA = sum(H) / sum(AB),
+    tH = sum(H),
+    tHR = sum(HR),
     tRBI = sum(RBI)
   )
 
