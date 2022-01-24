@@ -251,7 +251,7 @@ reactors <- reactors %>%
   ) 
 
 reactors <- reactors %>%
-  tail(-1) #gets rid of repetitve names in first row
+  tail(-1) #gets rid of repetitive names in first row
 
 ?tail
 
