@@ -1,9 +1,13 @@
 
 
-#chapter 9: statstical foundations
+#chapter 9: statistical foundations
+
+#ultimate objective in data science is to extract meaning from data
+
+#part of a workflow: wrangling -> exploring -> visualizing -> modeling
 
 #Any given data are a sample of a larger population
-#this chapter provies tools to connect samples to populations
+#this chapter provides tools to connect samples to populations
 
 
 # Samples and populations nyc flights example ------
@@ -11,6 +15,8 @@
 library(tidyverse)
 library(mdsr)
 library(nycflights13)
+
+#filter to just flights to san fran
 SF <- flights %>%
   filter(dest == "SFO", !is.na(arr_delay))
 
@@ -20,15 +26,15 @@ set.seed(101)
 sf_25 <- SF %>%
   slice_sample(n = 25)
 
-#get summary statstics for a specific column (arr_delay)
+#get summary statistics for a specific column (arr_delay)
 sf_25 %>%
   skim(arr_delay)
 
-#compare this to the whole population
+#compare this to the whole population - quite different
 SF %>%
   skim(arr_delay)
 
-#look at 98th quantile of sample distibution 
+#look at 98th quantile of sample distribution 
 sf_25 %>%
   summarize(q98 = quantile(arr_delay, p = 0.98))
 #168
@@ -46,9 +52,9 @@ SF %>%
 #98% of flights have delay less than 153 minutes
 
 
-#Sample statstics examples -----
+#Sample statistics examples -----
 
-#get a mean of a sample
+#get a mean of a sample from the population
 n <- 25
 SF %>%
   slice_sample(n = n) %>%
@@ -61,7 +67,7 @@ SF %>%
 
 library(purrr)
 
-#do this 500 times: draw a samples from the populationa nd calculate the mean
+#do this 500 times: draw a samples from the population and calculate the mean
 num_trials <- 500
 sf_25_means <- 1:num_trials %>%
   map_dfr(
@@ -74,10 +80,14 @@ sf_25_means <- 1:num_trials %>%
 #look at summary stats
 hist(sf_25_means$mean_arr_delay)
 sf_25_means %>%
-  skim(mean_arr_delay)
+  skim(mean_arr_delay) #skim is the same as summary with a little more info
 
 summary(sf_25_means)
+skim(sf_25_means)
 #not sure how skim is inherently better than summary.
+
+#if the mean is directionally different than the median, that suggests skew, which
+#you can see in the samplign distribution: skewed right so and mean is ~2X as high as median
 
 #SE = SD f sampling distribution
 #95% confidence interval = mean +/- 2 SE
@@ -122,19 +132,23 @@ sf_25_means %>%
 
 
 # logical leap of treating the sampling distribution as the population itself
-# throught the process of resampling: drawing a new sample from an existing sample
+# throughout the process of resampling: drawing a new sample from an existing sample
 # (with replacement)
 
-#resample withr replacement 
-SF %>% slice_sample(n = 3, replace = TRUE)
+#resample with replacement 
+SF %>% slice_sample(n = 3, replace = TRUE)  #can get duplicate samples
 
-#do a slice of 200 random rows
+#without replacement you would literally get all three of the unique samples
+
+SF %>% slice_sample(n = 3, replace = FALSE) #always have unique samples
+
+#do a slice of 200 random unique rows
 n <- 200
 orig_sample <- SF %>% 
   slice_sample(n = n, replace = FALSE)
 
 
-#a single resample
+#a single resample from that sample
 orig_sample %>%
   slice_sample(n = n, replace = TRUE) %>%
   summarize(mean_arr_delay = mean(arr_delay))
@@ -144,6 +158,7 @@ orig_sample %>%
 ?map_df
 
 #Apply a function to each element of a list or atomic vector with map_dfr
+#boostrap this to see the sampling variation
 
 sf_200_bs <- 1:num_trials %>%
   map_dfr(
@@ -156,7 +171,7 @@ sf_200_bs <- 1:num_trials %>%
 sf_200_bs %>%
   skim(mean_arr_delay)
 
-# nw do the same
+# now do the same at the population level and compare
 sf_200_pop <- 1:num_trials %>%
   map_dfr(
     ~SF %>%
@@ -171,7 +186,7 @@ sf_200_pop %>%
 # now relate this back to a sample of the airline data
 orig_sample %>%
   summarize(q98 = quantile(arr_delay, p = 0.98))
-#mean delay is 109
+#from the sample, this would suggest scheduling for flights to land 117 minutes before meeting
 
 #now do some boostrapping. Do this for 10000 iterations for more data
 n <- nrow(orig_sample)
@@ -185,10 +200,80 @@ sf_200_bs <- 1:10000 %>%
 sf_200_bs %>%
   skim(q98)
 
+#large confidence interval.
+
 hist(sf_200_bs$q98)
 # 95% CI = 107 +/- 20.2*2
 
 # outliers (stopped here) -------
 
 
+#inspect what might be associated with long delays
+SF %>%
+  filter(arr_delay >= 420) %>% 
+  select(month, day, dep_delay, arr_delay, carrier)
 
+#plot out long delays
+SF %>% 
+  filter(arr_delay < 420) %>%
+  ggplot(aes(arr_delay)) + 
+  geom_histogram(binwidth = 15) + 
+  labs(x = "Arrival delay (in minutes)")
+
+#plot out longer delays by month
+
+SF %>% 
+  mutate(long_delay = arr_delay > 60) %>%
+  group_by(month, long_delay) %>%
+  count() %>%
+  pivot_wider(names_from = month, values_from = n) %>% #long to wide format
+  data.frame()
+
+#6 and 7, june and july, stick out.
+
+
+#this doesn't provide a method or framework for identifying outliers. Not sure how helpful this
+#section is
+
+#modeling (not much beyond LM) ------
+
+SF %>%
+  ggplot(aes(x = hour, y = arr_delay)) +
+  geom_boxplot(alpha = 0.1, aes(group = hour)) +
+  geom_smooth(method = "lm") + 
+  xlab("Scheduled hour of departure") + 
+  ylab("Arrival delay (minutes)") + 
+  coord_cartesian(ylim = c(-30, 120))
+
+
+mod1 <- lm(arr_delay ~ hour, data = SF)
+broom::tidy(mod1)
+summary(mod1) #summary gives a more complete pictue, with R-squared and such.
+
+
+# confounding factors -----
+
+
+SAT_2010 <- SAT_2010 %>%
+  mutate(Salary = salary/1000)
+SAT_plot <- ggplot(data = SAT_2010, aes(x = Salary, y = total)) + 
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  ylab("Average total score on the SAT") + 
+  xlab("Average teacher salary (thousands of USD)")
+SAT_plot
+
+# Shows a negative relationship between teacher salary and SAT score, but
+# there are confounding variables - interactions - that are important
+
+#control for percent of students taking SAT
+
+# create a sat score column
+SAT_2010 <- SAT_2010 %>%
+  mutate(SAT_grp = ifelse(sat_pct <= 27, "Low", "High"))
+SAT_2010
+
+SAT_mod2 <- lm(total ~ Salary + sat_pct, data = SAT_2010)
+summary(SAT_mod2)
+
+#P - values as 'all or nothing' thinking has serious limits
